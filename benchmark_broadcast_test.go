@@ -122,31 +122,34 @@ func BenchmarkBroadcastAdd_F32(b *testing.B) {
 	for _, n := range dims {
 		name := fmt.Sprintf("N=%d", n)
 		b.Run(name, func(b *testing.B) {
-			b.ReportAllocs()
-			b.SetBytes(int64(n * n * 4))
-
 			aBack := makeF32Backing(n)
 			bBack := makeF32Backing(n)
 			aT := tensor.New(tensor.WithShape(n, 1), tensor.WithBacking(aBack))
 			bT := tensor.New(tensor.WithShape(1, n), tensor.WithBacking(bBack))
 
+			g := NewGraph()
+			a := NodeFromAny(g, aT, WithName("a"))
+			bN := NodeFromAny(g, bT, WithName("b"))
+			c, err := BroadcastAdd(a, bN, []byte{1}, []byte{0})
+			if err != nil {
+				b.Fatal(err)
+			}
+			_ = c
+
+			machine := NewTapeMachine(g)
+			defer machine.Close()
+			if err = machine.RunAll(); err != nil {
+				b.Fatal(err)
+			}
+
+			b.ReportAllocs()
+			b.SetBytes(int64(n * n * 4))
 			b.ResetTimer()
 			for i := 0; i < b.N; i++ {
-				g := NewGraph()
-				a := NodeFromAny(g, aT, WithName("a"))
-				bN := NodeFromAny(g, bT, WithName("b"))
-
-				c, err := BroadcastAdd(a, bN, []byte{1}, []byte{0})
-				if err != nil {
-					b.Fatal(err)
-				}
-				_ = c
-
-				machine := NewTapeMachine(g)
+				machine.Reset()
 				if err = machine.RunAll(); err != nil {
 					b.Fatal(err)
 				}
-				machine.Close()
 			}
 		})
 	}
@@ -159,31 +162,34 @@ func BenchmarkBroadcastMul_F32(b *testing.B) {
 	for _, n := range dims {
 		name := fmt.Sprintf("N=%d", n)
 		b.Run(name, func(b *testing.B) {
-			b.ReportAllocs()
-			b.SetBytes(int64(n * n * 4))
-
 			aBack := makeF32BackingVal(n, 2.0)
 			bBack := makeF32BackingVal(n, 3.0)
 			aT := tensor.New(tensor.WithShape(n, 1), tensor.WithBacking(aBack))
 			bT := tensor.New(tensor.WithShape(1, n), tensor.WithBacking(bBack))
 
+			g := NewGraph()
+			a := NodeFromAny(g, aT, WithName("a"))
+			bN := NodeFromAny(g, bT, WithName("b"))
+			c, err := BroadcastHadamardProd(a, bN, []byte{1}, []byte{0})
+			if err != nil {
+				b.Fatal(err)
+			}
+			_ = c
+
+			machine := NewTapeMachine(g)
+			defer machine.Close()
+			if err = machine.RunAll(); err != nil {
+				b.Fatal(err)
+			}
+
+			b.ReportAllocs()
+			b.SetBytes(int64(n * n * 4))
 			b.ResetTimer()
 			for i := 0; i < b.N; i++ {
-				g := NewGraph()
-				a := NodeFromAny(g, aT, WithName("a"))
-				bN := NodeFromAny(g, bT, WithName("b"))
-
-				c, err := BroadcastHadamardProd(a, bN, []byte{1}, []byte{0})
-				if err != nil {
-					b.Fatal(err)
-				}
-				_ = c
-
-				machine := NewTapeMachine(g)
+				machine.Reset()
 				if err = machine.RunAll(); err != nil {
 					b.Fatal(err)
 				}
-				machine.Close()
 			}
 		})
 	}
@@ -202,31 +208,34 @@ func BenchmarkBroadcastAdd_RowVec(b *testing.B) {
 	for _, tc := range cases {
 		name := fmt.Sprintf("N=%d_M=%d", tc.n, tc.m)
 		b.Run(name, func(b *testing.B) {
-			b.ReportAllocs()
-			b.SetBytes(int64(tc.n * tc.m * 4))
-
 			matBack := makeF32Backing(tc.n * tc.m)
 			rowBack := makeF32BackingVal(tc.m, 10.0)
 			matT := tensor.New(tensor.WithShape(tc.n, tc.m), tensor.WithBacking(matBack))
 			rowT := tensor.New(tensor.WithShape(1, tc.m), tensor.WithBacking(rowBack))
 
+			g := NewGraph()
+			a := NodeFromAny(g, matT, WithName("mat"))
+			bN := NodeFromAny(g, rowT, WithName("row"))
+			c, err := BroadcastAdd(a, bN, nil, []byte{0})
+			if err != nil {
+				b.Fatal(err)
+			}
+			_ = c
+
+			machine := NewTapeMachine(g)
+			defer machine.Close()
+			if err = machine.RunAll(); err != nil {
+				b.Fatal(err)
+			}
+
+			b.ReportAllocs()
+			b.SetBytes(int64(tc.n * tc.m * 4))
 			b.ResetTimer()
 			for i := 0; i < b.N; i++ {
-				g := NewGraph()
-				a := NodeFromAny(g, matT, WithName("mat"))
-				bN := NodeFromAny(g, rowT, WithName("row"))
-
-				c, err := BroadcastAdd(a, bN, nil, []byte{0})
-				if err != nil {
-					b.Fatal(err)
-				}
-				_ = c
-
-				machine := NewTapeMachine(g)
+				machine.Reset()
 				if err = machine.RunAll(); err != nil {
 					b.Fatal(err)
 				}
-				machine.Close()
 			}
 		})
 	}
@@ -245,31 +254,34 @@ func BenchmarkBroadcastAdd_ColVec(b *testing.B) {
 	for _, tc := range cases {
 		name := fmt.Sprintf("N=%d_M=%d", tc.n, tc.m)
 		b.Run(name, func(b *testing.B) {
-			b.ReportAllocs()
-			b.SetBytes(int64(tc.n * tc.m * 4))
-
 			matBack := makeF32Backing(tc.n * tc.m)
 			colBack := makeF32BackingVal(tc.n, 10.0)
 			matT := tensor.New(tensor.WithShape(tc.n, tc.m), tensor.WithBacking(matBack))
 			colT := tensor.New(tensor.WithShape(tc.n, 1), tensor.WithBacking(colBack))
 
+			g := NewGraph()
+			a := NodeFromAny(g, matT, WithName("mat"))
+			bN := NodeFromAny(g, colT, WithName("col"))
+			c, err := BroadcastAdd(a, bN, nil, []byte{1})
+			if err != nil {
+				b.Fatal(err)
+			}
+			_ = c
+
+			machine := NewTapeMachine(g)
+			defer machine.Close()
+			if err = machine.RunAll(); err != nil {
+				b.Fatal(err)
+			}
+
+			b.ReportAllocs()
+			b.SetBytes(int64(tc.n * tc.m * 4))
 			b.ResetTimer()
 			for i := 0; i < b.N; i++ {
-				g := NewGraph()
-				a := NodeFromAny(g, matT, WithName("mat"))
-				bN := NodeFromAny(g, colT, WithName("col"))
-
-				c, err := BroadcastAdd(a, bN, nil, []byte{1})
-				if err != nil {
-					b.Fatal(err)
-				}
-				_ = c
-
-				machine := NewTapeMachine(g)
+				machine.Reset()
 				if err = machine.RunAll(); err != nil {
 					b.Fatal(err)
 				}
-				machine.Close()
 			}
 		})
 	}

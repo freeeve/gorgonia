@@ -75,21 +75,20 @@ func reductionDo(op Op, s string, f func(*tensor.Dense, ...int) (*tensor.Dense, 
 	switch t := at.(type) {
 	case *tensor.Dense:
 		var ret *tensor.Dense
-		if ret, err = f(t, along...); err == nil {
-			if ret.IsScalar() {
-				retVal, _ = anyToScalar(ret.ScalarValue())
-			} else {
-				// the tensor reduction ops remove collapsed dimensions, but here we preserve them except in special cases.
-				// so we reshape the return to ensure the dimensions match.
-				var sh tensor.Shape
-				if sh, err = reductionInferShape(along, t.Shape()); err == nil {
-					if err = ret.Reshape(sh...); err == nil {
-						retVal = ret
-					}
+		if optRet, ok := optimizedReduceMiddleAxis(t, s, along); ok {
+			ret = optRet
+		} else if ret, err = f(t, along...); err != nil {
+			return nil, errors.Wrap(err, fmt.Sprintf("failed to apply *tensor.Dense.%s()", strings.Title(s)))
+		}
+		if ret.IsScalar() {
+			retVal, _ = anyToScalar(ret.ScalarValue())
+		} else {
+			var sh tensor.Shape
+			if sh, err = reductionInferShape(along, t.Shape()); err == nil {
+				if err = ret.Reshape(sh...); err == nil {
+					retVal = ret
 				}
 			}
-		} else {
-			return nil, errors.Wrap(err, fmt.Sprintf("failed to apply *tensor.Dense.%s()", strings.Title(s)))
 		}
 	default:
 		return nil, errors.Errorf(nyiFail, fmt.Sprintf("%sOp.Do()", s), at)
@@ -211,7 +210,8 @@ func newSumOp(along axes, s tensor.Shape, d int) sumOp {
 func (op sumOp) Arity() int { return 1 }
 
 // sumOp is a function with this type:
-//		sumOp :: (Summable a) ⇒ Tensor d a → Tensor d-1 a
+//
+//	sumOp :: (Summable a) ⇒ Tensor d a → Tensor d-1 a
 func (op sumOp) Type() hm.Type {
 	return reductionType(op.d, op.along)
 }
